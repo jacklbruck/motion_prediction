@@ -8,3 +8,4 @@ dist/
 build/
 fairmotion/tasks/motion_prediction/test_data/*
 *.pkl
+.DS_Store
