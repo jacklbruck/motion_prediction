@@ -15,9 +15,9 @@ from fairmotion.models import (
     seq2seq,
     transformer,
 )
-from fairmotion.tasks.motion_prediction import dataset as motion_dataset
 from fairmotion.utils import constants
 from fairmotion.ops import conversions
+from dataset import get_loader
 
 
 def apply_ops(input, ops):
@@ -96,7 +96,12 @@ def unnormalize(arr, mean, std):
 
 
 def prepare_dataset(
-    train_path, valid_path, test_path, batch_size, device, shuffle=False,
+    train_path,
+    valid_path,
+    test_path,
+    batch_size,
+    device,
+    shuffle=False,
 ):
     dataset = {}
     for split, split_path in zip(
@@ -106,21 +111,25 @@ def prepare_dataset(
         if split in ["test", "validation"]:
             mean = dataset["train"].dataset.mean
             std = dataset["train"].dataset.std
-        dataset[split] = motion_dataset.get_loader(
-            split_path, batch_size, device, mean, std, shuffle,
+
+        dataset[split] = get_loader(
+            split_path,
+            batch_size,
+            device,
+            mean,
+            std,
+            shuffle,
         )
     return dataset, mean, std
 
 
-def prepare_model(
-    input_dim, hidden_dim, device, num_layers=1, architecture="seq2seq"
-):
+def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq2seq"):
     if architecture == "rnn":
         model = rnn.RNN(input_dim, hidden_dim, num_layers)
     if architecture == "seq2seq":
-        enc = encoders.LSTMEncoder(
-            input_dim=input_dim, hidden_dim=hidden_dim
-        ).to(device)
+        enc = encoders.LSTMEncoder(input_dim=input_dim, hidden_dim=hidden_dim).to(
+            device
+        )
         dec = decoders.LSTMDecoder(
             input_dim=input_dim,
             hidden_dim=hidden_dim,
@@ -132,15 +141,24 @@ def prepare_model(
         model = seq2seq.TiedSeq2Seq(input_dim, hidden_dim, num_layers, device)
     elif architecture == "transformer_encoder":
         model = transformer.TransformerLSTMModel(
-            input_dim, hidden_dim, 4, hidden_dim, num_layers,
+            input_dim,
+            hidden_dim,
+            4,
+            hidden_dim,
+            num_layers,
         )
     elif architecture == "transformer":
         model = transformer.TransformerModel(
-            input_dim, hidden_dim, 4, hidden_dim, num_layers,
+            input_dim,
+            hidden_dim,
+            4,
+            hidden_dim,
+            num_layers,
         )
     model = model.to(device)
     model.zero_grad()
-    model.double()
+    model.init_weights()
+
     return model
 
 

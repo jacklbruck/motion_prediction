@@ -10,3 +10,5 @@ fairmotion/tasks/motion_prediction/test_data/*
 .DS_Store
 *.model
 config.txt
+*.pkl
+*.pt
