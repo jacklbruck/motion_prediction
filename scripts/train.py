@@ -12,6 +12,7 @@ import os
 sys.path.append("..")
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
+from fairmotion.tasks.motion_prediction.test import test_model
 from motion_prediction import utils, loops
 from tqdm import tqdm
 
@@ -73,11 +74,15 @@ def train(args):
     logging.info("Training model...")
     opt = utils.prepare_optimizer(model, args.optimizer, args.lr)
 
-    train_losses, val_losses = [], []
+    losses = {"train": [], "val": []}
+    maes = {k: [] for k in dataset.keys()}
+
     iterator = tqdm(range(args.epochs))
     for epoch in iterator:
         if iterator.postfix is not None:
-            cur_postfix = dict([tuple(s.split("=")) for s in iterator.postfix.split(", ")])
+            cur_postfix = dict(
+                [tuple(s.split("=")) for s in iterator.postfix.split(", ")]
+            )
         else:
             cur_postfix = dict()
         cur_postfix.update({"Training Loss": train_loss, "Validation Loss": val_loss})
@@ -92,35 +97,65 @@ def train(args):
             args.batch_size,
             max(0, 1 - 2 * epoch / args.epochs),
             args.architecture,
-            iterator=iterator
+            iterator=iterator,
         )
 
         # Get validation loss.
-        val_loss = loops.eval(model, criterion, dataset, args.batch_size, iterator=iterator)
+        val_loss = loops.eval(
+            model, criterion, dataset, args.batch_size, iterator=iterator
+        )
         opt.epoch_step(val_loss=val_loss)
 
         # Add losses.
-        train_losses.append(train_loss)
-        val_losses.append(val_loss)
+        losses["train"].append(train_loss)
+        losses["val"].append(val_loss)
 
-        if val_loss == min(val_losses):
+        if val_loss == min(losses["val"]):
             torch.save(model.state_dict(), f"../models/{args.architecture}/best.model")
 
-    return train_losses, val_losses
+        # Get test results.
+        for k in dataset.keys():
+            maes[k].append(
+                test_model(
+                    model=model,
+                    dataset=dataset[k],
+                    rep="aa",
+                    device=device,
+                    mean=mean,
+                    std=std,
+                    max_len=next(iter(dataset["train"]))[1].size(2),
+                )
+            )
+
+    return losses, maes
 
 
-def plot_curves(args, training_losses, val_losses):
-    plt.plot(range(len(training_losses)), training_losses)
-    plt.plot(range(len(val_losses)), val_losses)
+def plot_loss_curves(args, losses):
+    for k, v in losses.items():
+        plt.plot(range(len(v)), v, label=k)
+
     plt.ylabel("MSE Loss")
     plt.xlabel("Epoch")
+    plt.legend()
+
     plt.savefig(f"../models/{args.architecture}/loss.png", format="png")
+
+def plot_mae_curves(args, maes):
+    for k, v in maes.items():
+        plt.plot(range(len(v)), v, label=k)
+
+    plt.ylabel("MAE")
+    plt.xlabel("Epoch")
+    plt.legend()
+
+    plt.savefig(f"../models/{args.architecture}/mae.png", format="png")
 
 
 def main(args):
-    train_losses, val_losses = train(args)
+    losses, maes = train(args)
 
-    plot_curves(args, train_losses, val_losses)
+    plot_loss_curves(args, losses)
+    plot_mae_curves(args, maes)
 
 
 if __name__ == "__main__":
