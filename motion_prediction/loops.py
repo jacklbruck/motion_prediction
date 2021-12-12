@@ -4,13 +4,14 @@ from .utils import prepare_tgt_seqs
 from tqdm import tqdm
 
 
-def init(model, criterion, dataset, batch_size, iterator=None):
+def init(model, criterion, dataset, batch_size):
     model.eval()
 
     with torch.no_grad():
         loop_loss = 0
 
-        for src, tgt in dataset["train"]:
+        iterator = tqdm(dataset["train"])
+        for src, tgt in iterator:
             # Pass data through model and calculate loss.
             out = model(src, tgt, teacher_forcing_ratio=1.0)
             loss = criterion(out, tgt)

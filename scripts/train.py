@@ -201,6 +201,7 @@ if __name__ == "__main__":
             "seq2seq",
             "transformer",
             "transformer_encoder",
+            "st_graph"
         ],
     )
     parser.add_argument(

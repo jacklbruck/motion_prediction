@@ -7,6 +7,7 @@ import torch
 from functools import partial
 from multiprocessing import Pool
 
+from .models import SpatioTemporalGraphModel
 from fairmotion.models import (
     decoders,
     encoders,
@@ -124,8 +125,6 @@ def prepare_dataset(
 
 
 def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq2seq"):
-    if architecture == "rnn":
-        model = rnn.RNN(input_dim, hidden_dim, num_layers)
     if architecture == "seq2seq":
         enc = encoders.LSTMEncoder(input_dim=input_dim, hidden_dim=hidden_dim).to(
             device
@@ -137,8 +136,7 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
             device=device,
         ).to(device)
         model = seq2seq.Seq2Seq(enc, dec)
-    elif architecture == "tied_seq2seq":
-        model = seq2seq.TiedSeq2Seq(input_dim, hidden_dim, num_layers, device)
+
     elif architecture == "transformer_encoder":
         model = transformer.TransformerLSTMModel(
             input_dim,
@@ -147,6 +145,7 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
             hidden_dim,
             num_layers,
         )
+
     elif architecture == "transformer":
         model = transformer.TransformerModel(
             input_dim,
@@ -155,7 +154,14 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
             hidden_dim,
             num_layers,
         )
+
+    elif architecture == "st_graph":
+        model = SpatioTemporalGraphModel()
+
+    # Send model to proper device.
     model = model.to(device)
+
+    # Zero gradients and initialize.
     model.zero_grad()
     model.init_weights()
 

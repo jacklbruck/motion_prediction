@@ -12,3 +12,4 @@ fairmotion/tasks/motion_prediction/test_data/*
 config.txt
 *.pkl
 *.pt
+notebooks/
