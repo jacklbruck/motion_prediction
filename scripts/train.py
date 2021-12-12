@@ -10,8 +10,8 @@ import sys
 import os
 
 sys.path.append("..")
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-from fairmotion.tasks.motion_prediction import test
 from motion_prediction import utils, loops
 from tqdm import tqdm
 
@@ -42,14 +42,15 @@ def train(args):
     set_seeds()
 
     # Create model directory and save config.
-    utils.log_config(args.save_model_path, args)
+    if not os.path.exists(f"../models/{args.architecture}"):
+        os.mkdir(f"../models/{args.architecture}")
+    utils.log_config(f"../models/{args.architecture}", args)
 
     logging.info("Preparing dataset...")
     dataset, mean, std = utils.prepare_dataset(
-        *[
-            os.path.join(args.preprocessed_path, f"{split}.pt")
-            for split in ["train", "test", "val"]
-        ],
+        "../data/proc/train.pt",
+        "../data/proc/test.pt",
+        "../data/proc/val.pt",
         batch_size=args.batch_size,
         device=device,
         shuffle=args.shuffle,
@@ -102,21 +103,8 @@ def train(args):
         train_losses.append(train_loss)
         val_losses.append(val_loss)
 
-        # if epoch % args.save_model_frequency == 0:
-        #     _, rep = os.path.split(args.preprocessed_path.strip("/"))
-        #     _, mae = test.test_model(
-        #         model=model,
-        #         dataset=dataset["validation"],
-        #         rep=rep,
-        #         device=device,
-        #         mean=mean,
-        #         std=std,
-        #         max_len=L,
-        #     )
-        #     logging.info(f"Validation MAE: {mae}")
-        #     torch.save(model.state_dict(), f"{args.save_model_path}/{epoch}.model")
-        #     if len(tracker["val_losses"]) == 0 or val_loss <= min(tracker["val_losses"]):
-        #         torch.save(model.state_dict(), f"{args.save_model_path}/best.model")
+        if val_loss == min(val_losses):
+            torch.save(model.state_dict(), f"../models/{args.architecture}/best.model")
 
     return train_losses, val_losses
 
@@ -126,7 +114,7 @@ def plot_curves(args, training_losses, val_losses):
     plt.plot(range(len(val_losses)), val_losses)
     plt.ylabel("MSE Loss")
     plt.xlabel("Epoch")
-    plt.savefig(f"{args.save_model_path}/loss.svg", format="svg")
+    plt.savefig(f"../models/{args.architecture}/loss.png", format="png")
 
 
 def main(args):
@@ -138,12 +126,6 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Sequence to sequence motion prediction training."
-    )
-    parser.add_argument(
-        "--preprocessed-path",
-        type=str,
-        help="Path to folder with pickled " "files",
-        required=True,
     )
     parser.add_argument(
         "--batch-size", type=int, help="Batch size for training", default=64
@@ -164,12 +146,6 @@ if __name__ == "__main__":
         type=int,
         help="Number of layers of LSTM/Transformer in encoder/decoder",
         default=1,
-    )
-    parser.add_argument(
-        "--save-model-path",
-        type=str,
-        help="Path to store saved models",
-        required=True,
     )
     parser.add_argument(
         "--save-model-frequency",
