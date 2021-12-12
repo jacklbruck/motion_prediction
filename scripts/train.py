@@ -123,7 +123,6 @@ def train(args):
                     device=device,
                     mean=mean,
                     std=std,
-                    max_len=next(iter(dataset["train"]))[1].size(2),
                 )
             )
 
