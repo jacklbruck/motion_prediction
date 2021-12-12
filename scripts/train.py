@@ -121,8 +121,8 @@ def train(args):
                     dataset=dataset[k],
                     rep="aa",
                     device=device,
-                    mean=mean,
-                    std=std,
+                    mean=mean.numpy(),
+                    std=std.numpy(),
                 )
             )
 
