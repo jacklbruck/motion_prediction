@@ -66,14 +66,21 @@ def train(args):
     )
 
     logging.info("Running initialization loops...")
-    init_loss = loops.init(model, criterion, dataset, args.batch_size)
+    train_loss = loops.init(model, criterion, dataset, args.batch_size)
     val_loss = loops.eval(model, criterion, dataset, args.batch_size)
 
     logging.info("Training model...")
     opt = utils.prepare_optimizer(model, args.optimizer, args.lr)
 
     train_losses, val_losses = [], []
-    for epoch in range(args.epochs):
+    iterator = tqdm(range(args.epochs))
+    for epoch in iterator:
+        if iterator.postfix is not None:
+            cur_postfix = dict([tuple(s.split("=")) for s in iterator.postfix.split(", ")])
+        else:
+            cur_postfix = dict()
+        cur_postfix.update({"Training Loss": train_loss, "Validation Loss": val_loss})
+
         # Run training epoch.
         model, opt, train_loss = loops.train(
             model,
@@ -83,10 +90,11 @@ def train(args):
             args.batch_size,
             max(0, 1 - 2 * epoch / args.epochs),
             args.architecture,
+            iterator=iterator
         )
 
         # Get validation loss.
-        val_loss = loops.eval(model, criterion, dataset, args.batch_size)
+        val_loss = loops.eval(model, criterion, dataset, args.batch_size, iterator=iterator)
         opt.epoch_step(val_loss=val_loss)
 
         # Add losses.
