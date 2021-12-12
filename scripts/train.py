@@ -75,7 +75,6 @@ def train(args):
     opt = utils.prepare_optimizer(model, args.optimizer, args.lr)
 
     losses = {"train": [], "val": []}
-    maes = {k: [] for k in dataset.keys()}
 
     iterator = tqdm(range(args.epochs))
     for epoch in iterator:
@@ -113,20 +112,23 @@ def train(args):
         if val_loss == min(losses["val"]):
             torch.save(model.state_dict(), f"../models/{args.architecture}/best.model")
 
-        # Get test results.
-        for k in dataset.keys():
-            maes[k].append(
-                test_model(
-                    model=model,
-                    dataset=dataset[k],
-                    rep="aa",
-                    device=device,
-                    mean=mean.numpy(),
-                    std=std.numpy(),
-                )
-            )
+    # Get test results.
+    maes = {k: [] for k in dataset.keys()}
 
-    return losses, maes
+    for k in dataset.keys():
+        maes[k].append(
+            test_model(
+                model=model,
+                dataset=dataset[k],
+                rep="aa",
+                device=device,
+                mean=mean.numpy(),
+                std=std.numpy(),
+            )
+        )
+    print(maes)
+
+    return losses
 
 
 def plot_loss_curves(args, losses):
@@ -139,22 +141,11 @@ def plot_loss_curves(args, losses):
 
     plt.savefig(f"../models/{args.architecture}/loss.png", format="png")
 
-def plot_mae_curves(args, maes):
-    for k, v in maes.items():
-        plt.plot(range(len(v)), v, label=k)
-
-    plt.ylabel("MAE")
-    plt.xlabel("Epoch")
-    plt.legend()
-
-    plt.savefig(f"../models/{args.architecture}/mae.png", format="png")
-
 
 def main(args):
     losses, maes = train(args)
 
     plot_loss_curves(args, losses)
-    plot_mae_curves(args, maes)
 
 
 if __name__ == "__main__":
