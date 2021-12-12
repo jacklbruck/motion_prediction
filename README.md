@@ -24,7 +24,12 @@ python make_dataset.py
 ```
 
 ## Training
+Currently supported architectures:
+  - seq2seq
+  - transformer
+  - transformer_encoder
+
 ```sh
 cd scripts/
-python train.py --architecture transformer --epochs 100
+python train.py --architecture <architecture> --epochs 100
 ```
