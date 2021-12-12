@@ -19,6 +19,7 @@ Mean (Euler) Angle Error of poses at 80, 160, 320 and 400 ms. Mean Angle Error i
 Ensure that `data/raw` contains `CMU` directory.
 
 ```sh
+conda activate motion_prediction
 cd scripts/
 python make_dataset.py
 ```
@@ -30,6 +31,7 @@ Currently supported architectures:
   - transformer_encoder
 
 ```sh
+conda activate motion_prediction
 cd scripts/
 python train.py --architecture <architecture> --epochs 100
 ```
