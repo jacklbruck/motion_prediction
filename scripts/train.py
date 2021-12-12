@@ -6,6 +6,7 @@ import argparse
 import logging
 import random
 import torch
+import json
 import sys
 import os
 
@@ -113,20 +114,17 @@ def train(args):
             torch.save(model.state_dict(), f"../models/{args.architecture}/best.model")
 
     # Get test results.
-    maes = {k: [] for k in dataset.keys()}
+    maes = {k: {} for k in dataset.keys()}
 
     for k in dataset.keys():
-        maes[k].append(
-            test_model(
-                model=model,
-                dataset=dataset[k],
-                rep="aa",
-                device=device,
-                mean=mean.numpy(),
-                std=std.numpy(),
-            )
-        )
-    print(maes)
+        maes[k] = test_model(
+            model=model,
+            dataset=dataset[k],
+            rep="aa",
+            device=device,
+            mean=mean.numpy(),
+            std=std.numpy(),
+        )[1]
 
     return losses
 
@@ -145,7 +143,12 @@ def plot_loss_curves(args, losses):
 def main(args):
     losses, maes = train(args)
 
+    # Plot loss curves.
     plot_loss_curves(args, losses)
+
+    # Save ending error metrics.
+    with open(f"../models/{args.architecture}/maes.json", "w+") as f:
+        json.dump(maes, f)
 
 
 if __name__ == "__main__":
@@ -192,13 +195,11 @@ if __name__ == "__main__":
         "--architecture",
         type=str,
         help="Seq2Seq archtiecture to be used",
-        default="seq2seq",
+        default=None,
         choices=[
             "seq2seq",
-            "tied_seq2seq",
             "transformer",
             "transformer_encoder",
-            "rnn",
         ],
     )
     parser.add_argument(

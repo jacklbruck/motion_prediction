@@ -44,7 +44,7 @@ def train(
         # Update iterator.
         if iterator is not None:
             cur_postfix = dict([tuple(s.split("=")) for s in iterator.postfix.split(", ")])
-            cur_postfix.update({"Epoch Loss": loop_loss / (i + 1), "Epoch Progress": f"{i + 1}/{n}"})
+            cur_postfix.update({"Epoch Loss": loop_loss / ((i + 1) * batch_size), "Epoch Progress": f"{i + 1}/{n}"})
 
             iterator.set_postfix(cur_postfix)
 
@@ -72,7 +72,7 @@ def eval(model, criterion, dataset, batch_size, iterator=None):
             # Update iterator.
             if iterator is not None:
                 cur_postfix = dict([tuple(s.split("=")) for s in iterator.postfix.split(", ")])
-                cur_postfix.update({"Epoch Loss": loop_loss / (i + 1), "Epoch Progress": f"{i + 1}/{n}"})
+                cur_postfix.update({"Epoch Loss": loop_loss / ((i + 1) * batch_size), "Epoch Progress": f"{i + 1}/{n}"})
 
                 iterator.set_postfix(cur_postfix)
 

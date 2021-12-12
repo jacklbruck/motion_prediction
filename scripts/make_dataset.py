@@ -1,10 +1,9 @@
-# Copyright (c) Facebook, Inc. and its affiliates.
-
+import numpy as np
 import argparse
 import logging
-import numpy as np
-import os
 import pickle
+import torch
+import os
 
 from fairmotion.data import amass_dip
 from fairmotion.ops import motion as motion_ops
@@ -108,20 +107,6 @@ def read_content(filepath):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--input-dir",
-        required=True,
-        help="Location of the downloaded and unpacked zip file. See "
-        "https://amass.is.tue.mpg.de/dataset for dataset",
-    )
-    parser.add_argument(
-        "--output-dir", required=True, help="Where to store pickle files."
-    )
-    parser.add_argument(
-        "--split-dir",
-        default="./data",
-        help="Where the text files defining the data splits are stored.",
-    )
-    parser.add_argument(
         "--rep",
         type=str,
         help="Angle representation to convert data to",
@@ -156,18 +141,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    train_files = read_content(
-        os.path.join(args.split_dir, "training_fnames.txt")
-    )
-    validation_files = read_content(
-        os.path.join(args.split_dir, "validation_fnames.txt")
-    )
-    test_files = read_content(os.path.join(args.split_dir, "test_fnames.txt"))
+    train_files = read_content("../motion_prediction/data/training_fnames.txt")
+    validation_files = read_content("../motion_prediction/data/validation_fnames.txt")
+    test_files = read_content("../motion_prediction/data/test_fnames.txt")
 
     train_ftuples = []
     test_ftuples = []
     validation_ftuples = []
-    for filepath in fairmotion_utils.files_in_dir(args.input_dir, ext="pkl"):
+    for filepath in fairmotion_utils.files_in_dir("../data/raw", ext="pkl"):
         db_name = os.path.split(os.path.dirname(filepath))[1]
         db_name = (
             "_".join(db_name.split("_")[1:])
@@ -186,35 +167,44 @@ if __name__ == "__main__":
         else:
             pass
 
-    output_path = os.path.join(args.output_dir, args.rep)
-    fairmotion_utils.create_dir_if_absent(output_path)
-
     logging.info("Processing training data...")
     train_dataset = process_split(
         train_ftuples,
-        os.path.join(output_path, "train.pkl"),
+        "../data/interim/train.pkl",
         rep=args.rep,
         src_len=args.src_len,
         tgt_len=args.tgt_len,
         create_windows=(args.window_size, args.window_stride),
     )
+    with open("../data/interim/train.pkl", "rb") as f:
+        src, tgt = pickle.load(f)
+
+        torch.save((torch.Tensor(np.array(src)), torch.Tensor(np.array(tgt))), "../data/proc/train.pt")
 
     logging.info("Processing validation data...")
     process_split(
         validation_ftuples,
-        os.path.join(output_path, "validation.pkl"),
+        "../data/interim/val.pkl",
         rep=args.rep,
         src_len=args.src_len,
         tgt_len=args.tgt_len,
         create_windows=(args.window_size, args.window_stride),
     )
+    with open("../data/interim/val.pkl", "rb") as f:
+        src, tgt = pickle.load(f)
+
+        torch.save((torch.Tensor(np.array(src)), torch.Tensor(np.array(tgt))), "../data/proc/val.pt")
 
     logging.info("Processing test data...")
     process_split(
         test_ftuples,
-        os.path.join(output_path, "test.pkl"),
+        "../data/interim/test.pkl",
         rep=args.rep,
         src_len=args.src_len,
         tgt_len=args.tgt_len,
         create_windows=(args.window_size, args.window_stride),
     )
+    with open("../data/interim/test.pkl", "rb") as f:
+        src, tgt = pickle.load(f)
+
+        torch.save((torch.Tensor(np.array(src)), torch.Tensor(np.array(tgt))), "../data/proc/test.pt")
