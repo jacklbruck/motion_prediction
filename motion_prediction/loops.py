@@ -1,17 +1,16 @@
 import torch
 
-from utils import prepare_tgt_seqs
+from .utils import prepare_tgt_seqs
 from tqdm import tqdm
 
 
-def init(model, criterion, dataset, batch_size):
+def init(model, criterion, dataset, batch_size, iterator=None):
     model.eval()
 
     with torch.no_grad():
         loop_loss = 0
 
-        iterator = tqdm(dataset["train"], total=len(dataset["train"]))
-        for src, tgt in iterator:
+        for src, tgt in dataset["train"]:
             # Pass data through model and calculate loss.
             out = model(src, tgt, teacher_forcing_ratio=1.0)
             loss = criterion(out, tgt)
@@ -45,7 +44,7 @@ def train(
         # Update iterator.
         if iterator is not None:
             cur_postfix = dict([tuple(s.split("=")) for s in iterator.postfix.split(", ")])
-            cur_postfix.update({"Epoch Loss": loop_loss, "Epoch Progress": f"{i:3.0f}/{n:3.0f}"})
+            cur_postfix.update({"Epoch Loss": loop_loss / (i + 1), "Epoch Progress": f"{i + 1}/{n}"})
 
             iterator.set_postfix(cur_postfix)
 
@@ -73,7 +72,7 @@ def eval(model, criterion, dataset, batch_size, iterator=None):
             # Update iterator.
             if iterator is not None:
                 cur_postfix = dict([tuple(s.split("=")) for s in iterator.postfix.split(", ")])
-                cur_postfix.update({"Epoch Loss": loop_loss, "Epoch Progress": f"{i:3.0f}/{n:3.0f}"})
+                cur_postfix.update({"Epoch Loss": loop_loss / (i + 1), "Epoch Progress": f"{i + 1}/{n}"})
 
                 iterator.set_postfix(cur_postfix)
 

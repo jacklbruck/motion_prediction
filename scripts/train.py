@@ -80,6 +80,7 @@ def train(args):
         else:
             cur_postfix = dict()
         cur_postfix.update({"Training Loss": train_loss, "Validation Loss": val_loss})
+        iterator.set_postfix(cur_postfix)
 
         # Run training epoch.
         model, opt, train_loss = loops.train(

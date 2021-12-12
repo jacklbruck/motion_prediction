@@ -17,7 +17,7 @@ from fairmotion.models import (
 )
 from fairmotion.utils import constants
 from fairmotion.ops import conversions
-from dataset import get_loader
+from .dataset import get_loader
 
 
 def apply_ops(input, ops):
