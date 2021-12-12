@@ -127,7 +127,7 @@ def train(args):
             std=std.numpy(),
         )[1]
 
-    return losses
+    return losses, maes
 
 
 def plot_loss_curves(args, losses):
