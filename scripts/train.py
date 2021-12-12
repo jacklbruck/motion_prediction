@@ -114,6 +114,7 @@ def train(args):
             torch.save(model.state_dict(), f"../models/{args.architecture}/best.model")
 
     # Get test results.
+    logging.info("Testing model...")
     maes = {k: {} for k in dataset.keys()}
 
     for k in dataset.keys():
