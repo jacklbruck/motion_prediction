@@ -51,7 +51,7 @@ class GraphEncoder(nn.Module):
         dims = (N, L, J, A)
 
         X = X.reshape(N * L * J, A)
-        edge_index = self.edge_index.repeat(1, N * L) + (torch.arange(N * L) * J).unsqueeze(-1).repeat(1, len(self.edge_index.T)).flatten()
+        edge_index = self.edge_index.repeat(1, N * L) + (torch.arange(N * L) * J).unsqueeze(-1).repeat(1, len(self.edge_index.T)).flatten().to(self.device)
         batch = torch.arange(N).repeat(L*J).reshape(L*J, -1).T.flatten().to(self.device)
 
         return X, edge_index, batch, dims
