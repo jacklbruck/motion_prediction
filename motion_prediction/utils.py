@@ -216,5 +216,7 @@ def prepare_optimizer(model, opt: str, lr=None):
 def prepare_tgt_seqs(architecture, src_seqs, tgt_seqs):
     if architecture == "st_transformer" or architecture == "rnn":
         return torch.cat((src_seqs[:, 1:], tgt_seqs), axis=1)
+    elif architecture == "gat":
+        return torch.cat((src_seqs[:, 2 ** 4 + 1:], tgt_seqs), axis=1).detach()
     else:
         return tgt_seqs

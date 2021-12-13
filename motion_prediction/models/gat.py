@@ -75,10 +75,19 @@ class GraphModelStep(nn.Module):
 
         # Pass through model
         out = self.enc(srcb.x, srcb.edge_index)
-        out = out.reshape(-1, 2 ** self.n, SMPL_NR_JOINTS, self.hidden_dim)
-        out = self.post(out[:, -1]).reshape(-1, SMPL_NR_JOINTS * self.input_dim)
+        out = out.reshape(src.size(0), src.size(1), SMPL_NR_JOINTS, self.hidden_dim)
+
+        if self.training:
+            out = self.post(out[:, 2 ** self.n : -1]).reshape(
+                src.size(0),
+                src.size(1) - 2 ** self.n - 1,
+                SMPL_NR_JOINTS * self.input_dim,
+            )
+        else:
+            out = self.post(out[:, -1]).reshape(-1, SMPL_NR_JOINTS * self.input_dim)
 
         return out
+
 
 
 class GraphModel(nn.Module):
@@ -98,20 +107,23 @@ class GraphModel(nn.Module):
         pass
 
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=None):
-        # Prepare output seq.
-        max_len = tgt.size(1) if max_len is None else max_len
-        outs = torch.zeros(tgt.size(0), max_len, tgt.size(2)).to(self.device)
-
         # Generate sequence.
-        for t in range(max_len):
-            if not t:
-                seed = src[:, -2 ** self.n:]
-            elif t < 2 ** self.n:
-                seed = torch.cat([src[:, -2 ** self.n + t:], outs[:, :t]], dim=1)
-            else:
-                seed = outs[:, t - 2 ** self.n:t]
+        if self.training:
+            outs = self.gat(torch.cat((src, tgt), dim=1))
+        else:
+            # Prepare output seq.
+            max_len = tgt.size(1) if max_len is None else max_len
+            outs = torch.zeros(tgt.size(0), max_len, tgt.size(2)).to(self.device)
 
-            # Pass through networks.
-            outs[:, t, :] = self.gat(seed)
+            for t in range(max_len):
+                if not t:
+                    seed = src[:, -2 ** self.n:]
+                elif t < 2 ** self.n:
+                    seed = torch.cat([src[:, -2 ** self.n + t:], outs[:, :t]], dim=1)
+                else:
+                    seed = outs[:, t - 2 ** self.n:t]
+
+                # Pass through networks.
+                outs[:, t, :] = self.gat(seed)
 
         return outs
