@@ -20,7 +20,7 @@ class GraphEncoder(nn.Module):
         self.gc = GATConv(in_channels=hidden_dim, out_channels=hidden_dim)
 
         # Recurrent layer.
-        self.enc = nn.LSTM(
+        self.lstm = nn.LSTM(
             input_size=hidden_dim * SMPL_NR_JOINTS,
             hidden_size=hidden_dim * SMPL_NR_JOINTS,
             num_layers=num_layers,
@@ -65,11 +65,11 @@ class GraphEncoder(nn.Module):
         X = self.gc(X, edge_index)
         X = self.from_graph_seq(X, dims)
 
-        return self.enc(X)
+        return self.lstm(X)
 
 
 class GraphDecoder(nn.Module):
-    def __init__(self, hidden_dim=32, output_dim=3, num_layers=1, device="cpu"):
+    def __init__(self, hidden_dim=32, output_dim=3, num_layers=1, device="cpu", lstm=None):
         super(GraphDecoder, self).__init__()
         # Save parameters.
         self.hidden_dim = hidden_dim
@@ -77,7 +77,7 @@ class GraphDecoder(nn.Module):
         self.device = device
 
         # Recurrent layer.
-        self.dec = nn.LSTM(
+        self.dec = lstm if lstm is not None else nn.LSTM(
             input_size=hidden_dim * SMPL_NR_JOINTS,
             hidden_size=hidden_dim * SMPL_NR_JOINTS,
             num_layers=num_layers,

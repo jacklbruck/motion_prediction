@@ -165,6 +165,7 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
             output_dim=input_dim // gnn.SMPL_NR_JOINTS,
             num_layers=num_layers,
             device=device,
+            lstm=enc.lstm
         ).to(device)
 
         model = gnn.GraphModel(enc, dec)
