@@ -3,7 +3,7 @@ Human motion prediction is the problem of forecasting future body poses given ob
 
 ## Set Up Instructions
 ```sh
-conda create -n motion_prediction python=3.6
+conda create -n motion_prediction python=3.9
 conda activate motion_prediction
 pip install torch==1.10.0+cu113 torchvision==0.11.1+cu113 torchaudio===0.10.0+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 pip install torch-scatter torch-sparse torch-cluster torch-spline-conv torch-geometric -f https://data.pyg.org/whl/torch-1.10.0+cu113.html
