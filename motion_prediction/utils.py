@@ -16,7 +16,7 @@ from fairmotion.models import (
 from fairmotion.utils import constants
 from fairmotion.ops import conversions
 from .dataset import get_loader
-from .models import gnn
+from .models import gnn, glstm
 
 
 def apply_ops(input, ops):
@@ -169,6 +169,12 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
         ).to(device)
 
         model = gnn.GraphModel(enc, dec)
+
+    elif architecture == "glstm":
+        model = glstm.GraphModel(
+            input_dim=input_dim // gnn.SMPL_NR_JOINTS,
+            hidden_dim=hidden_dim,
+        )
 
     # Send model to proper device.
     model = model.to(device)

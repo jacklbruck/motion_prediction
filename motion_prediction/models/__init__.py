@@ -1,1 +1,1 @@
-from . import gnn
+from . import gnn, glstm
