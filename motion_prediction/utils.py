@@ -1,13 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
-
-
 import numpy as np
 import os
 import torch
 from functools import partial
 from multiprocessing import Pool
 
-from .models import SpatioTemporalGraphModel
 from fairmotion.models import (
     decoders,
     encoders,
@@ -19,6 +16,7 @@ from fairmotion.models import (
 from fairmotion.utils import constants
 from fairmotion.ops import conversions
 from .dataset import get_loader
+from .models import gnn
 
 
 def apply_ops(input, ops):
@@ -155,8 +153,21 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
             num_layers,
         )
 
-    elif architecture == "st_graph":
-        model = SpatioTemporalGraphModel()
+    elif architecture == "gnn":
+        enc = gnn.GraphEncoder(
+            input_dim=input_dim // gnn.SMPL_NR_JOINTS,
+            hidden_dim=hidden_dim,
+            num_layers=num_layers,
+            device=device,
+        ).to(device)
+        dec = gnn.GraphDecoder(
+            hidden_dim=hidden_dim,
+            output_dim=input_dim // gnn.SMPL_NR_JOINTS,
+            num_layers=num_layers,
+            device=device,
+        ).to(device)
+
+        model = gnn.GraphModel(enc, dec)
 
     # Send model to proper device.
     model = model.to(device)

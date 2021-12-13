@@ -1,1 +1,1 @@
-from .st_graph import SpatioTemporalGraphModel
+from . import gnn
