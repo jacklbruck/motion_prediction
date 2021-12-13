@@ -253,6 +253,9 @@ class GraphModel(nn.Module):
         self.dec = GConvLSTM(in_channels=input_dim, out_channels=hidden_dim, K=3)
         self.post = nn.Linear(in_features=hidden_dim, out_features=input_dim)
 
+    def init_weights(self):
+        pass
+
     @cached_property
     def _edge_index_base(self):
         return torch.LongTensor([(v, u) for u, v in enumerate(SMPL_PARENTS) if v >= 0])
@@ -297,10 +300,10 @@ class GraphModel(nn.Module):
         X = X.reshape(L, N * J, A)
 
         # Calculate batches.
-        edge_index = self._get_edge_index(N, J)
+        edge_index = self._get_edge_index(N, J).to(self.device)
         data_list = [Data(X[t], edge_index) for t in range(L)]
 
-        return Batch.from_data_list(data_list).to(self.device)
+        return Batch.from_data_list(data_list)
 
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=0.5):
         # Batch source and tgt sequences by time.
@@ -317,14 +320,14 @@ class GraphModel(nn.Module):
         # Prepare output seq.
         outs = torch.zeros(
             tgtb.num_graphs if max_len is None else max_len, *tgtb[0].x.size()
-        )
+        ).to(self.device)
 
         # Generate sequence.
         for t in range(outs.size(0)):
             if not t or np.random.random() < teacher_forcing_ratio:
                 seed = tgtb[t]
             else:
-                seed = Data(out, tgtb[t].edge_index)
+                seed = Data(out, tgtb[0].edge_index)
 
             # Pass through networks.
             out, (H, C) = self.dec(seed.x, seed.edge_index, H=H, C=C)

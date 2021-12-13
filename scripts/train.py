@@ -201,7 +201,9 @@ if __name__ == "__main__":
             "seq2seq",
             "transformer",
             "transformer_encoder",
-            "gnn"
+            "gnn",
+            "glstm",
+            "gat"
         ],
     )
     parser.add_argument(

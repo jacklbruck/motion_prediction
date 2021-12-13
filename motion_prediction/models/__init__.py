@@ -1,1 +1,1 @@
-from . import gnn, glstm
+from . import gnn, glstm, gat
