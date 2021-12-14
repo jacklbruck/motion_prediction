@@ -68,8 +68,11 @@ def train(args):
         architecture=args.architecture,
     )
 
+    print(sum(p.numel() for p in model.parameters() if p.requires_grad))
+    print(model)
+
     logging.info("Running initialization loops...")
-    train_loss = loops.init(model, criterion, dataset, args.batch_size)
+    train_loss = 0  # loops.init(model, criterion, dataset, args.batch_size)
     val_loss = loops.eval(model, criterion, dataset, args.batch_size)
 
     logging.info("Training model...")
@@ -95,7 +98,7 @@ def train(args):
             opt,
             dataset,
             args.batch_size,
-            max(0, 1 - 2 * epoch / args.epochs),
+            0,
             args.architecture,
             iterator=iterator,
         )
@@ -146,6 +149,9 @@ def main(args):
 
     # Plot loss curves.
     plot_loss_curves(args, losses)
+
+    with open(f"../models/{args.architecture}/losses.json", "w+") as f:
+        json.dump(losses, f)
 
     # Save ending error metrics.
     with open(f"../models/{args.architecture}/maes.json", "w+") as f:
@@ -203,7 +209,7 @@ if __name__ == "__main__":
             "transformer_encoder",
             "gnn",
             "glstm",
-            "gat"
+            "gat",
         ],
     )
     parser.add_argument(
@@ -216,7 +222,7 @@ if __name__ == "__main__":
         "--optimizer",
         type=str,
         help="Torch optimizer",
-        default="sgd",
+        default="adam",
         choices=["adam", "sgd", "noamopt"],
     )
     args = parser.parse_args()

@@ -16,7 +16,7 @@ from fairmotion.models import (
 from fairmotion.utils import constants
 from fairmotion.ops import conversions
 from .dataset import get_loader
-from .models import gnn, glstm, gat
+from .models import gnn, gat
 
 
 def apply_ops(input, ops):
@@ -154,34 +154,19 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
         )
 
     elif architecture == "gnn":
-        enc = gnn.GraphEncoder(
+        model = gnn.Model(
             input_dim=input_dim // gnn.SMPL_NR_JOINTS,
             hidden_dim=hidden_dim,
             num_layers=num_layers,
             device=device,
-        ).to(device)
-        dec = gnn.GraphDecoder(
-            hidden_dim=hidden_dim,
-            output_dim=input_dim // gnn.SMPL_NR_JOINTS,
-            num_layers=num_layers,
-            device=device,
-            lstm=enc.lstm
-        ).to(device)
-
-        model = gnn.GraphModel(enc, dec)
-
-    elif architecture == "glstm":
-        model = glstm.GraphModel(
-            input_dim=input_dim // gnn.SMPL_NR_JOINTS,
-            hidden_dim=hidden_dim,
-            device=device
         )
 
     elif architecture == "gat":
         model = gat.GraphModel(
             input_dim=input_dim // gnn.SMPL_NR_JOINTS,
             hidden_dim=hidden_dim,
-            device=device
+            num_layers=num_layers,
+            device=device,
         )
 
     # Send model to proper device.
@@ -214,9 +199,7 @@ def prepare_optimizer(model, opt: str, lr=None):
 
 
 def prepare_tgt_seqs(architecture, src_seqs, tgt_seqs):
-    if architecture == "st_transformer" or architecture == "rnn":
+    if architecture in ["st_transformer", "rnn"]:
         return torch.cat((src_seqs[:, 1:], tgt_seqs), axis=1)
-    elif architecture == "gat":
-        return torch.cat((src_seqs[:, 2 ** 4 + 1:], tgt_seqs), axis=1).detach()
     else:
         return tgt_seqs

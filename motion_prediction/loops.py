@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 
 def init(model, criterion, dataset, batch_size):
-    model.eval()
+    model.train()
 
     with torch.no_grad():
         loop_loss = 0
@@ -49,7 +49,7 @@ def train(
 
             iterator.set_postfix(cur_postfix)
 
-    return model, opt, loop_loss / (len(dataset["train"]) * batch_size)
+    return model, opt, loop_loss / (n * batch_size)
 
 
 def eval(model, criterion, dataset, batch_size, iterator=None):
@@ -77,7 +77,7 @@ def eval(model, criterion, dataset, batch_size, iterator=None):
 
                 iterator.set_postfix(cur_postfix)
 
-    return loop_loss / (len(dataset["validation"]) * batch_size)
+    return loop_loss / (n * batch_size)
 
 
 def generate(model, src_seqs, max_len, device):
