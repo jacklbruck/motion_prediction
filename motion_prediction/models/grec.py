@@ -20,7 +20,7 @@ class GraphTransform(nn.Module):
         self.hidden_dim = hidden_dim
         self.device = device
 
-        # Expand to hidden dim.
+        # Layer to expand input to hidden dim.
         self.l = nn.Linear(input_dim, hidden_dim)
 
     @cached_property
@@ -71,126 +71,60 @@ class GraphRecurrentNeuralNetwork(nn.Module):
         self.output_dim = output_dim
         self.device = device
 
-        self._conv_base = SAGEConv
+        # Initialize layers and trainable parameters.
+        self.g = nn.ModuleDict()
+        for g in ["i", "f", "c", "o"]:
+            # Convolutional layers.
+            self.g[g]["x"] = SAGEConv(
+                in_channels=input_dim,
+                out_channels=output_dim,
+            )
+            self.g[g]["h"] = SAGEConv(
+                in_channels=output_dim,
+                out_channels=output_dim,
+            )
 
-        self._create_parameters_and_layers()
-        self._set_parameters()
+            # Parameters.
+            if g != "c":
+                self.g[g]["w"] = Parameter(torch.Tensor(1, self.output_dim))
+                glorot(self.g[g]["w"])
 
-    def _create_input_gate_parameters_and_layers(self):
-        self.conv_x_i = self._conv_base(
-            in_channels=self.input_dim,
-            out_channels=self.output_dim,
+            self.g[g]["b"] = Parameter(torch.Tensor(1, self.output_dim))
+            zeros(self.g[g]["b"])
+
+    def _i(self, X, edge_index, h, c):
+        return torch.sigmoid(
+            self.g["i"]["x"](X, edge_index)
+            + self.g["i"]["h"](h, edge_index)
+            + self.g["i"]["w"] * c
+            + self.g["i"]["b"]
         )
 
-        self.conv_h_i = self._conv_base(
-            in_channels=self.output_dim,
-            out_channels=self.output_dim,
+    def _f(self, X, edge_index, h, c):
+        return torch.sigmoid(
+            self.g["f"]["x"](X, edge_index)
+            + self.g["f"]["h"](h, edge_index)
+            + self.g["f"]["w"] * c
+            + self.g["f"]["b"]
         )
 
-        self.w_c_i = Parameter(torch.Tensor(1, self.output_dim))
-        self.b_i = Parameter(torch.Tensor(1, self.output_dim))
-
-    def _create_forget_gate_parameters_and_layers(self):
-        self.conv_x_f = self._conv_base(
-            in_channels=self.input_dim,
-            out_channels=self.output_dim,
+    def _c(self, X, edge_index, h, c, i, f):
+        return f * c + i * torch.tanh(
+            self.g["c"]["x"](X, edge_index)
+            + self.g["c"]["h"](h, edge_index)
+            + self.g["c"]["b"]
         )
 
-        self.conv_h_f = self._conv_base(
-            in_channels=self.output_dim,
-            out_channels=self.output_dim,
+    def _o(self, X, edge_index, h, c):
+        return torch.sigmoid(
+            self.g["o"]["x"](X, edge_index)
+            + self.g["o"]["h"](h, edge_index)
+            + self.g["o"]["c"] * c
+            + self.g["o"]["b"]
         )
 
-        self.w_c_f = Parameter(torch.Tensor(1, self.output_dim))
-        self.b_f = Parameter(torch.Tensor(1, self.output_dim))
-
-    def _create_cell_state_parameters_and_layers(self):
-        self.conv_x_c = self._conv_base(
-            in_channels=self.input_dim,
-            out_channels=self.output_dim,
-        )
-
-        self.conv_h_c = self._conv_base(
-            in_channels=self.output_dim,
-            out_channels=self.output_dim,
-        )
-
-        self.b_c = Parameter(torch.Tensor(1, self.output_dim))
-
-    def _create_output_gate_parameters_and_layers(self):
-        self.conv_x_o = self._conv_base(
-            in_channels=self.input_dim,
-            out_channels=self.output_dim,
-        )
-
-        self.conv_h_o = self._conv_base(
-            in_channels=self.output_dim,
-            out_channels=self.output_dim,
-        )
-
-        self.w_c_o = Parameter(torch.Tensor(1, self.output_dim))
-        self.b_o = Parameter(torch.Tensor(1, self.output_dim))
-
-    def _create_parameters_and_layers(self):
-        self._create_input_gate_parameters_and_layers()
-        self._create_forget_gate_parameters_and_layers()
-        self._create_cell_state_parameters_and_layers()
-        self._create_output_gate_parameters_and_layers()
-
-    def _set_parameters(self):
-        glorot(self.w_c_i)
-        glorot(self.w_c_f)
-        glorot(self.w_c_o)
-        zeros(self.b_i)
-        zeros(self.b_f)
-        zeros(self.b_c)
-        zeros(self.b_o)
-
-    def _set_hidden_state(self, X, H):
-        if H is None:
-            H = torch.zeros(X.shape[0], self.output_dim).to(X.device)
-        return H
-
-    def _set_cell_state(self, X, C):
-        if C is None:
-            C = torch.zeros(X.shape[0], self.output_dim).to(X.device)
-        return C
-
-    def _calculate_input_gate(self, X, edge_index, H, C):
-        I = self.conv_x_i(X, edge_index)
-        I = I + self.conv_h_i(H, edge_index)
-        I = I + (self.w_c_i * C)
-        I = I + self.b_i
-        I = torch.sigmoid(I)
-        return I
-
-    def _calculate_forget_gate(self, X, edge_index, H, C):
-        F = self.conv_x_f(X, edge_index)
-        F = F + self.conv_h_f(H, edge_index)
-        F = F + (self.w_c_f * C)
-        F = F + self.b_f
-        F = torch.sigmoid(F)
-        return F
-
-    def _calculate_cell_state(self, X, edge_index, H, C, I, F):
-        T = self.conv_x_c(X, edge_index)
-        T = T + self.conv_h_c(H, edge_index)
-        T = T + self.b_c
-        T = torch.tanh(T)
-        C = F * C + I * T
-        return C
-
-    def _calculate_output_gate(self, X, edge_index, H, C):
-        O = self.conv_x_o(X, edge_index)
-        O = O + self.conv_h_o(H, edge_index)
-        O = O + (self.w_c_o * C)
-        O = O + self.b_o
-        O = torch.sigmoid(O)
-        return O
-
-    def _calculate_hidden_state(self, O, C):
-        H = O * torch.tanh(C)
-        return H
+    def _h(self, O, C):
+        return O * torch.tanh(C)
 
     def forward(
         self,
@@ -200,17 +134,17 @@ class GraphRecurrentNeuralNetwork(nn.Module):
         c: torch.FloatTensor = None,
     ) -> torch.FloatTensor:
         # Initialize hidden state if not given.
-        H = self._set_hidden_state(X, h)
-        C = self._set_cell_state(X, c)
+        h = torch.zeros(X.size(0), self.output_dim).to(X.device) if h is None else h
+        c = torch.zeros(X.size(0), self.output_dim).to(X.device) if c is None else c
 
         # Calculate gates.
-        I = self._calculate_input_gate(X, edge_index, H, C)
-        F = self._calculate_forget_gate(X, edge_index, H, C)
-        C = self._calculate_cell_state(X, edge_index, H, C, I, F)
-        O = self._calculate_output_gate(X, edge_index, H, C)
-        H = self._calculate_hidden_state(O, C)
+        i = self._i(X, edge_index, h, c)
+        f = self._f(X, edge_index, h, c)
+        c = self._c(X, edge_index, h, c, i, f)
+        o = self._o(X, edge_index, h, c)
+        h = self._h(o, c)
 
-        return O, (H, C)
+        return o, (h, c)
 
 
 class Model(nn.Module):
@@ -240,7 +174,7 @@ class Model(nn.Module):
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=0.5):
         # Pass inputs through recurrent network.
         for t in range(src.size(1) - 24, src.size(1)):
-            if t == src.size(1) - 24 or np.random.random() < 1/6:
+            if t == src.size(1) - 24 or np.random.random() < 1 / 6:
                 inp, edge_index = self.enc(src[:, t])
 
                 out, (h, c) = self.rec(inp, edge_index)
