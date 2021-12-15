@@ -1,5 +1,6 @@
 import torch.nn.functional as F
 import torch.nn as nn
+import numpy as np
 import torch
 
 from fairmotion.data.amass_dip import SMPL_PARENTS, SMPL_NR_JOINTS
@@ -238,8 +239,8 @@ class Model(nn.Module):
 
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=0.5):
         # Pass inputs through recurrent network.
-        for t in range(src.size(1) - 24, src.size(1)):
-            if t == src.size(1) - 24:
+        for t in range(src.size(1) - 12, src.size(1)):
+            if t == src.size(1) - 12 or np.random.random() < 1/6:
                 inp, edge_index = self.enc(src[:, t])
 
                 out, (h, c) = self.rec(inp, edge_index)
@@ -255,11 +256,11 @@ class Model(nn.Module):
 
         for t in range(outs.size(1)):
             if not t:
-                inp = self.enc(tgt[:, 0])
+                inp, edge_index = self.enc(tgt[:, 0])
             else:
                 inp = out
 
-            out, (h, c) = self.rec(out, edge_index, h=h, c=c)
+            out, (h, c) = self.rec(inp, edge_index, h=h, c=c)
             outs[:, t] = out.reshape(src.size(0), SMPL_NR_JOINTS * self.hidden_dim)
 
         return self.dec(outs)
