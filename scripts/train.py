@@ -208,8 +208,7 @@ if __name__ == "__main__":
             "transformer",
             "transformer_encoder",
             "gnn",
-            "glstm",
-            "gat",
+            "grec"
         ],
     )
     parser.add_argument(
