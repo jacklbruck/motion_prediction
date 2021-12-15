@@ -238,13 +238,13 @@ class Model(nn.Module):
 
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=0.5):
         # Pass inputs through recurrent network.
-        for t in range(src.size(1)):
-            inp, edge_index = self.enc(src[:, t])
+        for t in range(src.size(1) - 24, src.size(1)):
+            if t == src.size(1) - 24:
+                inp, edge_index = self.enc(src[:, t])
 
-            if not t:
                 out, (h, c) = self.rec(inp, edge_index)
             else:
-                out, (h, c) = self.rec(inp, edge_index, h=h, c=c)
+                out, (h, c) = self.rec(out, edge_index, h=h, c=c)
 
         # Initialize output parameters.
         outs = torch.zeros(
