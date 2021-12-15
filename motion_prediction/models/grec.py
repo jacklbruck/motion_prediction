@@ -6,7 +6,7 @@ from fairmotion.data.amass_dip import SMPL_PARENTS, SMPL_NR_JOINTS
 from torch_geometric.utils import to_undirected, add_self_loops
 from torch_geometric.nn.inits import glorot, zeros
 from torch_geometric.data import Batch, Data
-from torch_geometric.nn import GATConv
+from torch_geometric.nn import SAGEConv
 from functools import cached_property
 from torch.nn import Parameter
 
@@ -14,13 +14,13 @@ from torch.nn import Parameter
 class GraphTransform(nn.Module):
     def __init__(self, input_dim=3, hidden_dim=24, device="cpu"):
         super(GraphTransform, self).__init__()
+        # Save parameters.
+        self.input_dim = input_dim
         self.hidden_dim = hidden_dim
         self.device = device
 
-        self.prep = nn.Linear(
-            in_features=input_dim * SMPL_NR_JOINTS,
-            out_features=hidden_dim * SMPL_NR_JOINTS,
-        )
+        # Expand to hidden dim.
+        self.l = nn.Linear(input_dim, hidden_dim)
 
     @cached_property
     def _edge_index(self):
@@ -45,104 +45,86 @@ class GraphTransform(nn.Module):
 
     def _batchify(self, x):
         # Reshape for graph.
-        N, L, _ = x.size()
-        J, A = SMPL_NR_JOINTS, self.hidden_dim
-
-        x = x.reshape(N, L, J, A)
+        N, _ = x.size()
+        J, A = SMPL_NR_JOINTS, self.input_dim
 
         # Reshape for temporal batching.
-        x = x.permute(1, 0, 2, 3)
-        x = x.reshape(L, N * J, A)
+        x = x.reshape(N * J, A)
 
         # Calculate batches.
-        edge_index = self._get_edge_index(N, J)
-        data_list = [Data(x[t], edge_index) for t in range(L)]
+        edge_index = self._get_edge_index(N, J).to(self.device)
 
-        return Batch.from_data_list(data_list)
+        return x, edge_index
 
     def forward(self, x):
-        x = F.relu(self.prep(x))
+        x, edge_index = self._batchify(x)
 
-        return self._batchify(x)
+        return F.relu(self.l(x)), edge_index
 
 
 class GraphRecurrentNeuralNetwork(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, heads: int = 1, device="cpu"):
+    def __init__(self, input_dim: int, output_dim: int, device="cpu"):
         super(GraphRecurrentNeuralNetwork, self).__init__()
-
+        # Save parameters.
         self.input_dim = input_dim
         self.output_dim = output_dim
-        self.heads = heads
         self.device = device
+
+        self._conv_base = SAGEConv
 
         self._create_parameters_and_layers()
         self._set_parameters()
 
     def _create_input_gate_parameters_and_layers(self):
-        self.conv_x_i = GATConv(
+        self.conv_x_i = self._conv_base(
             in_channels=self.input_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
         )
 
-        self.conv_h_i = GATConv(
+        self.conv_h_i = self._conv_base(
             in_channels=self.output_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
         self.w_c_i = Parameter(torch.Tensor(1, self.output_dim))
         self.b_i = Parameter(torch.Tensor(1, self.output_dim))
 
     def _create_forget_gate_parameters_and_layers(self):
-        self.conv_x_f = GATConv(
+        self.conv_x_f = self._conv_base(
             in_channels=self.input_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
-        self.conv_h_f = GATConv(
+        self.conv_h_f = self._conv_base(
             in_channels=self.output_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
         self.w_c_f = Parameter(torch.Tensor(1, self.output_dim))
         self.b_f = Parameter(torch.Tensor(1, self.output_dim))
 
     def _create_cell_state_parameters_and_layers(self):
-        self.conv_x_c = GATConv(
+        self.conv_x_c = self._conv_base(
             in_channels=self.input_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
-        self.conv_h_c = GATConv(
+        self.conv_h_c = self._conv_base(
             in_channels=self.output_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
         self.b_c = Parameter(torch.Tensor(1, self.output_dim))
 
     def _create_output_gate_parameters_and_layers(self):
-        self.conv_x_o = GATConv(
+        self.conv_x_o = self._conv_base(
             in_channels=self.input_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
-        self.conv_h_o = GATConv(
+        self.conv_h_o = self._conv_base(
             in_channels=self.output_dim,
             out_channels=self.output_dim,
-            heads=self.heads,
-            concat=False,
         )
 
         self.w_c_o = Parameter(torch.Tensor(1, self.output_dim))
@@ -238,15 +220,8 @@ class Model(nn.Module):
         self.hidden_dim = hidden_dim
         self.device = device
 
-        # Source preprocessing layer to get hidden state.
-        self.src_prep = nn.LSTM(
-            input_size=input_dim * SMPL_NR_JOINTS,
-            hidden_size=hidden_dim * SMPL_NR_JOINTS,
-            batch_first=True,
-        )
-
-        # Target preprocessing layer.
-        self.tgt_prep = GraphTransform(
+        # Preprocessing layer.
+        self.enc = GraphTransform(
             input_dim=input_dim, hidden_dim=hidden_dim, device=device
         )
 
@@ -262,6 +237,15 @@ class Model(nn.Module):
         pass
 
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=0.5):
+        # Pass inputs through recurrent network.
+        for t in range(src.size(1)):
+            inp, edge_index = self.enc(src[:, t])
+
+            if not t:
+                out, (h, c) = self.rec(inp, edge_index)
+            else:
+                out, (h, c) = self.rec(inp, edge_index, h=h, c=c)
+
         # Initialize output parameters.
         outs = torch.zeros(
             tgt.size(0),
@@ -269,22 +253,13 @@ class Model(nn.Module):
             self.hidden_dim * SMPL_NR_JOINTS,
         ).to(self.device)
 
-        # Encode input sequences.
-        _, (h, c) = self.src_prep(src)
-        tgt = self.tgt_prep(tgt)
+        for t in range(outs.size(1)):
+            if not t:
+                inp = self.enc(tgt[:, 0])
+            else:
+                inp = out
 
-        # First pass through recurrent layer.
-        out, (h, c) = self.rec(
-            tgt[0].x,
-            tgt[0].edge_index,
-            h=h[-1].reshape(src.size(0) * SMPL_NR_JOINTS, self.hidden_dim),
-            c=c[-1].reshape(src.size(0) * SMPL_NR_JOINTS, self.hidden_dim),
-        )
-        outs[:, 0] = out.reshape(src.size(0), SMPL_NR_JOINTS * self.hidden_dim)
-
-        for t in range(1, outs.size(1)):
-            out, (h, c) = self.rec(out, tgt[0].edge_index, (h, c))
-
+            out, (h, c) = self.rec(out, edge_index, h=h, c=c)
             outs[:, t] = out.reshape(src.size(0), SMPL_NR_JOINTS * self.hidden_dim)
 
         return self.dec(outs)
