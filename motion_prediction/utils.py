@@ -16,7 +16,7 @@ from fairmotion.models import (
 from fairmotion.utils import constants
 from fairmotion.ops import conversions
 from .dataset import get_loader
-from .models import gnn, gat, grec
+from .models import gnn, grnn
 
 
 def apply_ops(input, ops):
@@ -171,7 +171,7 @@ def prepare_model(input_dim, hidden_dim, device, num_layers=1, architecture="seq
         model = gnn.GraphModel(enc, dec)
 
     elif architecture == "grec":
-        model = grec.Model(
+        model = grnn.Model(
             input_dim=input_dim // gnn.SMPL_NR_JOINTS,
             hidden_dim=hidden_dim,
             num_layers=num_layers,

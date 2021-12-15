@@ -1,1 +1,1 @@
-from . import gnn, gat, grec
+from . import gnn, grnn
