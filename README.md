@@ -31,6 +31,8 @@ Currently supported architectures:
   - seq2seq
   - transformer
   - transformer_encoder
+  - gnn
+  - grnn
 
 ```sh
 conda activate motion_prediction
