@@ -183,12 +183,6 @@ if __name__ == "__main__":
         default=1,
     )
     parser.add_argument(
-        "--save-model-frequency",
-        type=int,
-        help="Frequency (in terms of number of epochs) at which model is " "saved",
-        default=5,
-    )
-    parser.add_argument(
         "--epochs", type=int, help="Number of training epochs", default=200
     )
     parser.add_argument(
@@ -201,7 +195,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--architecture",
         type=str,
-        help="Seq2Seq archtiecture to be used",
+        help="Seq2Seq architecture to be used.",
         default=None,
         choices=[
             "seq2seq",

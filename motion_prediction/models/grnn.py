@@ -51,14 +51,15 @@ class GraphTransform(nn.Module):
         return F.relu(self.l(x)), edge_index
 
 
-class GraphConv(MessagePassing):
+class GraphConvolution(MessagePassing):
     def __init__(self, input_dim=3, hidden_dim=24):
-        super(GraphConv, self).__init__(aggr="mean")
+        super(GraphConvolution, self).__init__(aggr="mean")
 
         # Save parameters.
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
 
+        # Source and target nodes.
         self.l = nn.Linear(input_dim, hidden_dim, bias=True)
         self.r = nn.Linear(input_dim, hidden_dim, bias=False)
 
@@ -90,11 +91,11 @@ class GraphRecurrentNeuralNetwork(nn.Module):
             self.l[g] = nn.ModuleDict()
 
             # Convolutional layers.
-            self.l[g]["x"] = GraphConv(
+            self.l[g]["x"] = GraphConvolution(
                 input_dim=input_dim,
                 hidden_dim=hidden_dim,
             )
-            self.l[g]["h"] = GraphConv(
+            self.l[g]["h"] = GraphConvolution(
                 input_dim=hidden_dim,
                 hidden_dim=hidden_dim,
             )
