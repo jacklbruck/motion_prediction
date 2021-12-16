@@ -146,8 +146,8 @@ class GraphRecurrentNeuralNetwork(nn.Module):
             + self.b["o"]
         )
 
-    def _h(self, O, C):
-        return O * torch.tanh(C)
+    def _h(self, o, c):
+        return o * torch.tanh(c)
 
     def forward(self, X, edge_index, h=None, c=None):
         # Initialize hidden state if not given.
