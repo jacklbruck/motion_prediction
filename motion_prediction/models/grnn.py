@@ -190,8 +190,8 @@ class Model(nn.Module):
 
     def forward(self, src, tgt, max_len=None, teacher_forcing_ratio=0.5):
         # Pass inputs through recurrent network.
-        for t in range(src.size(1) - 24, src.size(1)):
-            if t == src.size(1) - 24 or np.random.random() < 1 / 6:
+        for t in range(src.size(1) - 12, src.size(1)):
+            if t == src.size(1) - 12 or np.random.random() < 1 / 6:
                 inp, edge_index = self.enc(src[:, t])
 
                 out, (h, c) = self.rec(inp, edge_index)
